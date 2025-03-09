@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gestion-etablissement
+  namespace: gestion-etablissement
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gestion-etablissement
+  template:
+    metadata:
+      labels:
+        app: gestion-etablissement
+    spec:
+      containers:
+        - name: gestion-etablissement
+          image: registry.gitlab.com/your-group/gestion-etablissement:latest
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 20
+          volumeMounts:
+            - name: config-volume
+              mountPath: /app/config
+          env:
+            - name: SPRING_CONFIG_LOCATION
+              value: file:/app/config/application.properties
+            - name: SPRING_PROFILES_ACTIVE
+              value: prod
+      volumes:
+        - name: config-volume
+          configMap:
+            name: app-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gestion-etablissement
+  namespace: gestion-etablissement
+spec:
+  type: LoadBalancer
+  selector:
+    app: gestion-etablissement
+  ports:
+    - port: 80
+      targetPort: 8080 

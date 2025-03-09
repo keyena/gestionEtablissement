@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  jenkins:
+    image: jenkins/jenkins:lts
+    privileged: true
+    user: root
+    ports:
+      - "8085:8080"
+      - "50005:50000"
+    container_name: jenkins
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - tools-network
+
+  sonarqube:
+    image: sonarqube:latest
+    ports:
+      - "9005:9000"
+    container_name: sonarqube
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+    networks:
+      - tools-network
+
+  artifactory:
+    image: docker.bintray.io/jfrog/artifactory-oss:latest
+    ports:
+      - "8086:8081"
+      - "8087:8082"
+    container_name: artifactory
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+    volumes:
+      - artifactory_data:/var/opt/jfrog/artifactory
+    networks:
+      - tools-network
+
+  registry:
+    image: registry:2
+    ports:
+      - "5005:5000"
+    container_name: registry
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    volumes:
+      - registry_data:/var/lib/registry
+    networks:
+      - tools-network
+
+volumes:
+  jenkins_home:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:
+  artifactory_data:
+  registry_data:
+
+networks:
+  tools-network:
+    driver: bridge 

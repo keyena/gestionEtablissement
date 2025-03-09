@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gestion-etablissement
+  namespace: staging
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gestion-etablissement
+  template:
+    metadata:
+      labels:
+        app: gestion-etablissement
+    spec:
+      containers:
+      - name: gestion-etablissement
+        image: ${DOCKER_LOCAL_REGISTRY}/gestion-etablissement:${VERSION}
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: staging
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: password
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 20
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gestion-etablissement
+  namespace: staging
+spec:
+  selector:
+    app: gestion-etablissement
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: LoadBalancer 

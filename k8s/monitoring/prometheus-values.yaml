@@ -1,0 +1,65 @@
+server:
+  global:
+    scrape_interval: 15s
+    evaluation_interval: 15s
+
+  persistentVolume:
+    size: 10Gi
+
+  retention: 15d
+
+  alertmanager:
+    enabled: true
+    persistence:
+      enabled: true
+      size: 5Gi
+
+  rules:
+    groups:
+      - name: node
+        rules:
+          - alert: HighCPUUsage
+            expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: High CPU usage on {{ $labels.instance }}
+              description: CPU usage is above 80% for 5 minutes
+
+          - alert: HighMemoryUsage
+            expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 80
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: High memory usage on {{ $labels.instance }}
+              description: Memory usage is above 80% for 5 minutes
+
+nodeExporter:
+  enabled: true
+
+grafana:
+  enabled: true
+  adminPassword: admin
+
+  persistence:
+    enabled: true
+    size: 5Gi
+
+  dashboards:
+    default:
+      node-exporter:
+        gnetId: 1860
+        revision: 23
+        datasource: Prometheus
+
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://prometheus-server
+          access: proxy
+          isDefault: true 

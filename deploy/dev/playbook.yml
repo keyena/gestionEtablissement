@@ -1,0 +1,48 @@
+---
+- name: Deploy Application to Dev Environment
+  hosts: dev_servers
+  become: yes
+  vars:
+    app_name: gestion-etablissement
+    docker_image: "{{ lookup('env', 'DOCKER_REGISTRY') }}/{{ lookup('env', 'CI_PROJECT_PATH') }}:{{ lookup('env', 'CI_COMMIT_SHA') }}"
+
+  tasks:
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+        update_cache: yes
+
+    - name: Ensure Docker service is running
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Log into Artifactory
+      docker_login:
+        registry: "{{ lookup('env', 'DOCKER_REGISTRY') }}"
+        username: "{{ lookup('env', 'ARTIFACTORY_USER') }}"
+        password: "{{ lookup('env', 'ARTIFACTORY_PASS') }}"
+
+    - name: Pull Docker image
+      docker_image:
+        name: "{{ docker_image }}"
+        source: pull
+        force_source: yes
+
+    - name: Stop existing container
+      docker_container:
+        name: "{{ app_name }}"
+        state: absent
+
+    - name: Start application container
+      docker_container:
+        name: "{{ app_name }}"
+        image: "{{ docker_image }}"
+        state: started
+        restart_policy: always
+        ports:
+          - "8080:8080"
+        env:
+          SPRING_PROFILES_ACTIVE: "dev" 

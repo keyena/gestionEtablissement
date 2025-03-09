@@ -1,0 +1,87 @@
+image: eclipse-temurin:17-jdk
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+  DOCKER_REGISTRY: "artifactory.example.com"
+  DOCKER_IMAGE: "$CI_REGISTRY_IMAGE"
+  SONAR_HOST_URL: "http://sonarqube:9000"
+
+cache:
+  paths:
+    - .m2/repository
+
+stages:
+  - build
+  - test
+  - quality
+  - package
+  - deploy-dev
+  - deploy-staging
+  - deploy-prod
+
+build:
+  stage: build
+  image: maven:3.9-eclipse-temurin-17
+  script:
+    - mvn clean compile
+
+test:
+  stage: test
+  image: maven:3.9-eclipse-temurin-17
+  script:
+    - mvn test
+  artifacts:
+    reports:
+      junit: target/surefire-reports/*.xml
+
+sonarqube:
+  stage: quality
+  image: maven:3.9-eclipse-temurin-17
+  script:
+    - mvn verify sonar:sonar
+      -Dsonar.host.url=$SONAR_HOST_URL
+      -Dsonar.login=$SONAR_TOKEN
+
+package:
+  stage: package
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  script:
+    - mvn package -DskipTests
+    - docker build -t $DOCKER_REGISTRY/$CI_PROJECT_PATH:$CI_COMMIT_SHA .
+    - docker login -u $ARTIFACTORY_USER -p $ARTIFACTORY_PASS $DOCKER_REGISTRY
+    - docker push $DOCKER_REGISTRY/$CI_PROJECT_PATH:$CI_COMMIT_SHA
+    - docker tag $DOCKER_REGISTRY/$CI_PROJECT_PATH:$CI_COMMIT_SHA $DOCKER_REGISTRY/$CI_PROJECT_PATH:latest
+    - docker push $DOCKER_REGISTRY/$CI_PROJECT_PATH:latest
+
+deploy-dev:
+  stage: deploy-dev
+  image: alpine:latest
+  script:
+    - apk add --no-cache ansible
+    - ansible-playbook deploy/dev/playbook.yml
+  only:
+    - develop
+
+deploy-staging:
+  stage: deploy-staging
+  image: alpine:latest
+  script:
+    - apk add --no-cache kubectl
+    - kubectl config use-context staging
+    - kubectl apply -f k8s/
+  only:
+    - develop
+
+deploy-prod:
+  stage: deploy-prod
+  image: hashicorp/terraform:latest
+  script:
+    - cd terraform/prod
+    - terraform init
+    - terraform plan
+    - terraform apply -auto-approve
+  when: manual
+  only:
+    - main 
