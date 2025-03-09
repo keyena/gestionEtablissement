@@ -21,13 +21,19 @@ jobs:
         distribution: 'temurin'
         cache: maven
     
-    - name: Vérifier la configuration Maven
+    - name: Vérifier la structure du projet
       run: |
-        echo "Contenu du pom.xml :"
+        echo "=== Structure du projet ==="
+        ls -la
+        echo "=== Contenu du pom.xml ==="
         cat pom.xml
+        echo "=== Version de Java ==="
+        java -version
+        echo "=== Version de Maven ==="
+        mvn -version
         
-    - name: Compiler avec Maven (skip tests)
-      run: mvn -B package -DskipTests
+    - name: Compiler avec Maven (verbose)
+      run: mvn -B -X clean package -DskipTests
       
     - name: Exécuter les tests
       run: mvn test
